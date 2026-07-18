@@ -1,8 +1,9 @@
+import json
 import secrets
 import string
-from datetime import date
+from datetime import date, datetime
 
-from flask import Flask, render_template, redirect, url_for, flash
+from flask import Flask, render_template, redirect, url_for, flash, Response, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -117,6 +118,102 @@ def account():
     if current_user.role == "parent":
         caregivers = User.query.filter_by(parent_id=current_user.id).all()
     return render_template("account.html", parent=parent, caregivers=caregivers)
+
+@app.route("/backup")
+@login_required
+def backup():
+    owner_id = current_user.data_owner_id()
+
+    data = {
+        "exported_at": datetime.utcnow().isoformat(),
+        "bp_logs": [
+            {"systolic": r.systolic, "diastolic": r.diastolic, "created_at": r.created_at.isoformat()}
+            for r in BPLog.query.filter_by(user_id=owner_id).all()
+        ],
+        "sodium_logs": [
+            {"amount_mg": r.amount_mg, "created_at": r.created_at.isoformat()}
+            for r in SodiumLog.query.filter_by(user_id=owner_id).all()
+        ],
+        "tasks": [
+            {"description": r.description, "is_done": r.is_done, "date": r.date.isoformat()}
+            for r in Task.query.filter_by(user_id=owner_id).all()
+        ],
+        "notes": [
+            {"text": r.text, "created_at": r.created_at.isoformat()}
+            for r in Note.query.filter_by(user_id=owner_id).all()
+        ],
+        "moods": [
+            {"mood_value": r.mood_value, "created_at": r.created_at.isoformat()}
+            for r in MoodLog.query.filter_by(user_id=owner_id).all()
+        ],
+        "appointments": [
+            {"title": r.title, "date": r.date.isoformat(), "time": r.time, "notes": r.notes}
+            for r in Appointment.query.filter_by(user_id=owner_id).all()
+        ],
+        "medications": [
+            {"name": r.name, "dose": r.dose, "time": r.time, "notes": r.notes}
+            for r in Medication.query.filter_by(user_id=owner_id).all()
+        ],
+    }
+
+    filename = f"parent-dashboard-backup-{date.today().isoformat()}.json"
+    return Response(
+        json.dumps(data, indent=2),
+        mimetype="application/json",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@app.route("/restore", methods=["GET", "POST"])
+@login_required
+def restore():
+    if request.method == "POST":
+        file = request.files.get("backup_file")
+        if not file or not file.filename:
+            flash("Choose a backup file first")
+            return redirect(url_for("restore"))
+        try:
+            data = json.load(file.stream)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            flash("That file isn't valid backup JSON")
+            return redirect(url_for("restore"))
+
+        owner_id = current_user.data_owner_id()
+        added = 0
+
+        for r in data.get("bp_logs", []):
+            db.session.add(BPLog(user_id=owner_id, systolic=r["systolic"], diastolic=r["diastolic"],
+                                  created_at=datetime.fromisoformat(r["created_at"])))
+            added += 1
+        for r in data.get("sodium_logs", []):
+            db.session.add(SodiumLog(user_id=owner_id, amount_mg=r["amount_mg"],
+                                      created_at=datetime.fromisoformat(r["created_at"])))
+            added += 1
+        for r in data.get("tasks", []):
+            db.session.add(Task(user_id=owner_id, description=r["description"], is_done=r["is_done"],
+                                 date=date.fromisoformat(r["date"])))
+            added += 1
+        for r in data.get("notes", []):
+            db.session.add(Note(user_id=owner_id, text=r["text"],
+                                 created_at=datetime.fromisoformat(r["created_at"])))
+            added += 1
+        for r in data.get("moods", []):
+            db.session.add(MoodLog(user_id=owner_id, mood_value=r["mood_value"],
+                                    created_at=datetime.fromisoformat(r["created_at"])))
+            added += 1
+        for r in data.get("appointments", []):
+            db.session.add(Appointment(user_id=owner_id, title=r["title"], date=date.fromisoformat(r["date"]),
+                                        time=r["time"], notes=r.get("notes")))
+            added += 1
+        for r in data.get("medications", []):
+            db.session.add(Medication(user_id=owner_id, name=r["name"], dose=r["dose"],
+                                       time=r["time"], notes=r.get("notes")))
+            added += 1
+
+        db.session.commit()
+        flash(f"Restored {added} records")
+        return redirect(url_for("dashboard"))
+
+    return render_template("restore.html")
 
 @app.route("/bp", methods=["GET","POST"])
 @login_required

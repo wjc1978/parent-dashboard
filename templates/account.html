@@ -25,4 +25,9 @@
     <p class="empty">Not linked to a parent account.</p>
   {% endif %}
 {% endif %}
+
+<h2>Data Backup</h2>
+<p>Download a copy of the health data. Useful before a redeploy, since the hosted database resets each time.</p>
+<p><a class="btn" href="{{ url_for('backup') }}">Download Backup</a></p>
+<p><a href="{{ url_for('restore') }}">Restore from a backup file &rarr;</a></p>
 {% endblock %}
