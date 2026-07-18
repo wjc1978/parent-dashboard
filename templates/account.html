@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Account</h1>
+
+{% if current_user.role == "parent" %}
+  <h2>Your Share Code</h2>
+  <p>Give this code to a caregiver so they can view and log data on your behalf.</p>
+  <p class="share-code">{{ current_user.share_code }}</p>
+
+  <h2>Linked Caregivers</h2>
+  {% if caregivers %}
+    <ul>
+      {% for c in caregivers %}
+        <li>{{ c.email }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">No caregivers linked yet.</p>
+  {% endif %}
+{% else %}
+  <h2>Linked Parent Account</h2>
+  {% if parent %}
+    <p>You are currently viewing and logging data for <strong>{{ parent.email }}</strong>.</p>
+  {% else %}
+    <p class="empty">Not linked to a parent account.</p>
+  {% endif %}
+{% endif %}
+{% endblock %}

@@ -1,3 +1,7 @@
+import secrets
+import string
+from datetime import date
+
 from flask import Flask, render_template, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -22,6 +26,13 @@ login_manager.login_view = "login"
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+def generate_share_code():
+    alphabet = string.ascii_uppercase + string.digits
+    while True:
+        code = "".join(secrets.choice(alphabet) for _ in range(6))
+        if not User.query.filter_by(share_code=code).first():
+            return code
+
 
 
 
@@ -29,20 +40,29 @@ def load_user(user_id):
 @app.route("/")
 @login_required
 def dashboard():
-    bp_logs = BPLog.query.filter_by(user_id=current_user.id).order_by(BPLog.created_at.desc()).limit(10).all()
-    sodium_logs = SodiumLog.query.filter_by(user_id=current_user.id).order_by(SodiumLog.created_at.desc()).limit(10).all()
-    tasks = Task.query.filter_by(user_id=current_user.id).order_by(Task.date.asc()).all()
-    notes = Note.query.filter_by(user_id=current_user.id).order_by(Note.created_at.desc()).limit(5).all()
-    moods = MoodLog.query.filter_by(user_id=current_user.id).order_by(MoodLog.created_at.desc()).limit(7).all()
+    bp_logs = BPLog.query.filter_by(user_id=current_user.data_owner_id()).order_by(BPLog.created_at.desc()).limit(10).all()
+    sodium_logs = SodiumLog.query.filter_by(user_id=current_user.data_owner_id()).order_by(SodiumLog.created_at.desc()).limit(10).all()
+    tasks = Task.query.filter_by(user_id=current_user.data_owner_id()).order_by(Task.date.asc()).all()
+    notes = Note.query.filter_by(user_id=current_user.data_owner_id()).order_by(Note.created_at.desc()).limit(5).all()
+    moods = MoodLog.query.filter_by(user_id=current_user.data_owner_id()).order_by(MoodLog.created_at.desc()).limit(7).all()
+
+    todays_appointments = Appointment.query.filter_by(user_id=current_user.data_owner_id(), date=date.today()).order_by(Appointment.time.asc()).all()
+    todays_meds = Medication.query.filter_by(user_id=current_user.data_owner_id()).order_by(Medication.time.asc()).all()
 
     chart_logs = list(reversed(bp_logs))
     labels = [log.created_at.strftime("%m-%d") for log in chart_logs]
     systolic = [log.systolic for log in chart_logs]
     diastolic = [log.diastolic for log in chart_logs]
 
+    sodium_chart_logs = list(reversed(sodium_logs))
+    sodium_labels = [log.created_at.strftime("%m-%d") for log in sodium_chart_logs]
+    sodium_amounts = [log.amount_mg for log in sodium_chart_logs]
+
     return render_template("dashboard.html", bp_logs=bp_logs, sodium_logs=sodium_logs,
                            tasks=tasks, notes=notes, moods=moods,
-                           labels=labels, systolic=systolic, diastolic=diastolic)
+                           labels=labels, systolic=systolic, diastolic=diastolic,
+                           sodium_labels=sodium_labels, sodium_amounts=sodium_amounts,
+                           todays_appointments=todays_appointments, todays_meds=todays_meds)
 
 @app.route("/login", methods=["GET","POST"])
 def login():
@@ -61,9 +81,20 @@ def register():
     if form.validate_on_submit():
         if User.query.filter_by(email=form.email.data).first():
             flash("Email already registered")
+        elif form.role.data == "caregiver" and not form.share_code.data.strip():
+            flash("Caregivers must enter a share code")
         else:
             user = User(email=form.email.data,
-                        password=generate_password_hash(form.password.data))
+                        password=generate_password_hash(form.password.data),
+                        role=form.role.data)
+            if form.role.data == "caregiver":
+                parent = User.query.filter_by(share_code=form.share_code.data.strip().upper(), role="parent").first()
+                if not parent:
+                    flash("Invalid caregiver share code")
+                    return render_template("register.html", form=form)
+                user.parent_id = parent.id
+            else:
+                user.share_code = generate_share_code()
             db.session.add(user)
             db.session.commit()
             flash("Registered, please log in")
@@ -76,12 +107,23 @@ def logout():
     logout_user()
     return redirect(url_for("login"))
 
+@app.route("/account")
+@login_required
+def account():
+    parent = None
+    if current_user.role == "caregiver" and current_user.parent_id:
+        parent = User.query.get(current_user.parent_id)
+    caregivers = []
+    if current_user.role == "parent":
+        caregivers = User.query.filter_by(parent_id=current_user.id).all()
+    return render_template("account.html", parent=parent, caregivers=caregivers)
+
 @app.route("/bp", methods=["GET","POST"])
 @login_required
 def bp():
     form = BPForm()
     if form.validate_on_submit():
-        log = BPLog(user_id=current_user.id,
+        log = BPLog(user_id=current_user.data_owner_id(),
                     systolic=form.systolic.data,
                     diastolic=form.diastolic.data)
         db.session.add(log)
@@ -94,7 +136,7 @@ def bp():
 def sodium():
     form = SodiumForm()
     if form.validate_on_submit():
-        log = SodiumLog(user_id=current_user.id,
+        log = SodiumLog(user_id=current_user.data_owner_id(),
                         amount_mg=form.amount_mg.data)
         db.session.add(log)
         db.session.commit()
@@ -106,20 +148,20 @@ def sodium():
 def tasks():
     form = TaskForm()
     if form.validate_on_submit():
-        task = Task(user_id=current_user.id,
+        task = Task(user_id=current_user.data_owner_id(),
                     description=form.description.data,
                     date=form.date.data)
         db.session.add(task)
         db.session.commit()
         return redirect(url_for("tasks"))
-    tasks = Task.query.filter_by(user_id=current_user.id).order_by(Task.date.asc()).all()
+    tasks = Task.query.filter_by(user_id=current_user.data_owner_id()).order_by(Task.date.asc()).all()
     return render_template("tasks.html", form=form, tasks=tasks)
 
 @app.route("/tasks/<int:task_id>/toggle")
 @login_required
 def toggle_task(task_id):
     task = Task.query.get_or_404(task_id)
-    if task.user_id != current_user.id:
+    if task.user_id != current_user.data_owner_id():
         return redirect(url_for("tasks"))
     task.is_done = not task.is_done
     db.session.commit()
@@ -130,11 +172,11 @@ def toggle_task(task_id):
 def notes():
     form = NoteForm()
     if form.validate_on_submit():
-        note = Note(user_id=current_user.id, text=form.text.data)
+        note = Note(user_id=current_user.data_owner_id(), text=form.text.data)
         db.session.add(note)
         db.session.commit()
         return redirect(url_for("notes"))
-    notes = Note.query.filter_by(user_id=current_user.id).order_by(Note.created_at.desc()).all()
+    notes = Note.query.filter_by(user_id=current_user.data_owner_id()).order_by(Note.created_at.desc()).all()
     return render_template("notes.html", form=form, notes=notes)
 
 @app.route("/mood", methods=["GET","POST"])
@@ -142,7 +184,7 @@ def notes():
 def mood():
     form = MoodForm()
     if form.validate_on_submit():
-        log = MoodLog(user_id=current_user.id, mood_value=form.mood_value.data)
+        log = MoodLog(user_id=current_user.data_owner_id(), mood_value=form.mood_value.data)
         db.session.add(log)
         db.session.commit()
         return redirect(url_for("dashboard"))
@@ -154,7 +196,7 @@ def appointments():
     form = AppointmentForm()
     if form.validate_on_submit():
         appt = Appointment(
-            user_id=current_user.id,
+            user_id=current_user.data_owner_id(),
             title=form.title.data,
             date=form.date.data,
             time=form.time.data,
@@ -163,7 +205,7 @@ def appointments():
         db.session.add(appt)
         db.session.commit()
         return redirect(url_for("appointments"))
-    appts = Appointment.query.filter_by(user_id=current_user.id).order_by(Appointment.date.asc()).all()
+    appts = Appointment.query.filter_by(user_id=current_user.data_owner_id()).order_by(Appointment.date.asc()).all()
     return render_template("appointments.html", form=form, appts=appts)
 
 @app.route("/meds", methods=["GET","POST"])
@@ -172,7 +214,7 @@ def meds():
     form = MedicationForm()
     if form.validate_on_submit():
         med = Medication(
-            user_id=current_user.id,
+            user_id=current_user.data_owner_id(),
             name=form.name.data,
             dose=form.dose.data,
             time=form.time.data,
@@ -181,7 +223,7 @@ def meds():
         db.session.add(med)
         db.session.commit()
         return redirect(url_for("meds"))
-    meds = Medication.query.filter_by(user_id=current_user.id).all()
+    meds = Medication.query.filter_by(user_id=current_user.data_owner_id()).all()
     return render_template("meds.html", form=form, meds=meds)
 
 if __name__ == "__main__":

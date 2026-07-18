@@ -17,6 +17,7 @@
     <a href="{{ url_for('mood') }}">Mood</a>
     <a href="{{ url_for('appointments') }}">Appointments</a>
     <a href="{{ url_for('meds') }}">Medications</a>
+    <a href="{{ url_for('account') }}">Account</a>
     <a href="{{ url_for('logout') }}">Logout</a>
   {% else %}
     <a href="{{ url_for('login') }}">Login</a>
@@ -25,6 +26,13 @@
 </nav>
 
 <main>
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for message in messages %}
+        <div class="flash">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
   {% block content %}{% endblock %}
 </main>
 

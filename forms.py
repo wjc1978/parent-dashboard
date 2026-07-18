@@ -10,6 +10,13 @@ class LoginForm(FlaskForm):
 class RegisterForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired(), Email()])
     password = PasswordField("Password", validators=[DataRequired(), Length(min=6)])
+    role = SelectField(
+        "I am a...",
+        choices=[("parent", "Parent / Patient"), ("caregiver", "Caregiver")],
+        default="parent",
+        validators=[DataRequired()]
+    )
+    share_code = StringField("Caregiver Share Code (caregivers only)")
     submit = SubmitField("Register")
 
 class BPForm(FlaskForm):
@@ -40,6 +47,7 @@ class MoodForm(FlaskForm):
     ],
     validators=[DataRequired()]
 )
+    submit = SubmitField("Save")
 
 class AppointmentForm(FlaskForm):
     title = StringField("Title", validators=[DataRequired()])

@@ -9,6 +9,13 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), default="parent")
+    share_code = db.Column(db.String(12), unique=True, nullable=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+
+    def data_owner_id(self):
+        if self.role == "caregiver" and self.parent_id:
+            return self.parent_id
+        return self.id
 
 class BPLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)

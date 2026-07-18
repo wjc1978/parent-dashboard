@@ -5,12 +5,30 @@
 
 <h1>Dashboard</h1>
 
+<div class="reminders">
+  <h2>Today</h2>
+  {% if todays_appointments or todays_meds %}
+    <ul>
+      {% for a in todays_appointments %}
+        <li>📅 {{ a.time }} — {{ a.title }}{% if a.notes %} ({{ a.notes }}){% endif %}</li>
+      {% endfor %}
+      {% for m in todays_meds %}
+        <li>💊 {{ m.time }} — {{ m.name }} ({{ m.dose }})</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">No appointments or medications to show.</p>
+  {% endif %}
+</div>
+
 <h2>Blood Pressure</h2>
-<canvas id="bpChart"
-        data-labels='{{ labels|tojson }}'
-        data-systolic='{{ systolic|tojson }}'
-        data-diastolic='{{ diastolic|tojson }}'>
-</canvas>
+<div class="chart-box" style="height:220px">
+  <canvas id="bpChart"
+          data-labels='{{ labels|tojson }}'
+          data-systolic='{{ systolic|tojson }}'
+          data-diastolic='{{ diastolic|tojson }}'>
+  </canvas>
+</div>
 <ul>
   {% for log in bp_logs %}
     <li>{{ log.created_at }} — {{ log.systolic }}/{{ log.diastolic }}</li>
@@ -18,6 +36,12 @@
 </ul>
 
 <h2>Sodium</h2>
+<div class="chart-box" style="height:220px">
+  <canvas id="sodiumChart"
+          data-labels='{{ sodium_labels|tojson }}'
+          data-amounts='{{ sodium_amounts|tojson }}'>
+  </canvas>
+</div>
 <ul>
   {% for log in sodium_logs %}
     <li>{{ log.created_at }} — {{ log.amount_mg }} mg</li>
