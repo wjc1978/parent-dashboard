@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Notes</h1>
+
+<form method="POST">
+  {{ form.hidden_tag() }}
+  <p>{{ form.text.label }}<br>{{ form.text }}</p>
+  <p>{{ form.submit }}</p>
+</form>
+
+<ul>
+  {% for n in notes %}
+    <li>{{ n.created_at }} — {{ n.text }}</li>
+  {% endfor %}
+</ul>
+
+{% endblock %}

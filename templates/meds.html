@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Medications</h1>
+
+<form method="POST">
+  {{ form.hidden_tag() }}
+  <p>{{ form.name.label }}<br>{{ form.name }}</p>
+  <p>{{ form.dose.label }}<br>{{ form.dose }}</p>
+  <p>{{ form.time.label }}<br>{{ form.time }}</p>
+  <p>{{ form.notes.label }}<br>{{ form.notes }}</p>
+  <p>{{ form.submit }}</p>
+</form>
+
+<ul>
+  {% for m in meds %}
+    <li>{{ m.time }} — {{ m.name }} ({{ m.dose }}){% if m.notes %} — {{ m.notes }}{% endif %}</li>
+  {% endfor %}
+</ul>
+{% endblock %}

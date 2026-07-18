@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Tasks</h1>
+
+<form method="POST">
+  {{ form.hidden_tag() }}
+  <p>{{ form.description.label }}<br>{{ form.description }}</p>
+  <p>{{ form.date.label }}<br>{{ form.date }}</p>
+  <p>{{ form.submit }}</p>
+</form>
+
+<ul>
+  {% for t in tasks %}
+    <li>
+      {{ t.date }} — {{ t.description }}
+      <a href="{{ url_for('toggle_task', task_id=t.id) }}">Toggle</a>
+    </li>
+  {% endfor %}
+</ul>
+
+{% endblock %}

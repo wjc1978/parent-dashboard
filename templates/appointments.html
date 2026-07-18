@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Appointments</h1>
+
+<form method="POST">
+  {{ form.hidden_tag() }}
+  <p>{{ form.title.label }}<br>{{ form.title }}</p>
+  <p>{{ form.date.label }}<br>{{ form.date }}</p>
+  <p>{{ form.time.label }}<br>{{ form.time }}</p>
+  <p>{{ form.notes.label }}<br>{{ form.notes }}</p>
+  <p>{{ form.submit }}</p>
+</form>
+
+<ul>
+  {% for a in appts %}
+    <li>{{ a.date }} {{ a.time }} — {{ a.title }}{% if a.notes %} ({{ a.notes }}){% endif %}</li>
+  {% endfor %}
+</ul>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+
+<h1>Dashboard</h1>
+
+<h2>Blood Pressure</h2>
+<canvas id="bpChart"
+        data-labels='{{ labels|tojson }}'
+        data-systolic='{{ systolic|tojson }}'
+        data-diastolic='{{ diastolic|tojson }}'>
+</canvas>
+<ul>
+  {% for log in bp_logs %}
+    <li>{{ log.created_at }} — {{ log.systolic }}/{{ log.diastolic }}</li>
+  {% endfor %}
+</ul>
+
+<h2>Sodium</h2>
+<ul>
+  {% for log in sodium_logs %}
+    <li>{{ log.created_at }} — {{ log.amount_mg }} mg</li>
+  {% endfor %}
+</ul>
+
+<h2>Tasks</h2>
+<ul>
+  {% for t in tasks %}
+    <li>{{ t.date }} — {{ t.description }} {% if t.is_done %}(done){% endif %}</li>
+  {% endfor %}
+</ul>
+
+<h2>Notes</h2>
+<ul>
+  {% for n in notes %}
+    <li>{{ n.created_at }} — {{ n.text }}</li>
+  {% endfor %}
+</ul>
+
+<h2>Mood</h2>
+<ul>
+  {% for m in moods %}
+    <li>{{ m.created_at }} — {{ m.mood_value }}</li>
+  {% endfor %}
+</ul>
+
+{% endblock %}

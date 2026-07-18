@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Add Sodium Intake</h1>
+<form method="POST">
+  {{ form.hidden_tag() }}
+  <p>{{ form.amount_mg.label }}<br>{{ form.amount_mg }}</p>
+  <p>{{ form.submit }}</p>
+</form>
+{% endblock %}

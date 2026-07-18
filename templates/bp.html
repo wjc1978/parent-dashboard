@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Add Blood Pressure</h1>
+<form method="POST">
+  {{ form.hidden_tag() }}
+  <p>{{ form.systolic.label }}<br>{{ form.systolic }}</p>
+  <p>{{ form.diastolic.label }}<br>{{ form.diastolic }}</p>
+  <p>{{ form.submit }}</p>
+</form>
+{% endblock %}
